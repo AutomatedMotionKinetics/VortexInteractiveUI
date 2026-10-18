@@ -1,17 +1,17 @@
 # Vortex Interactive UI
 
-A clickable UI for [Vortex](https://playvortex.io) games, built out of Parts. Panels and buttons sit in front of the camera and react to the mouse: hover, click and drag. It comes with a ready-made hotbar and inventory, where items are ordinary models: they show up in the slots as small copies of themselves, and the equipped one goes to the avatar's right hand.
+A clickable UI for [Vortex](https://playvortex.io) games, made out of Parts. Panels and buttons sit in front of the camera and react to the mouse, so you can hover, click and drag them. It comes with a ready-made hotbar and inventory. Items are ordinary models: each slot shows a small copy of its item, and the one you equip goes into your avatar's right hand.
 
 [![Watch the video](https://img.youtube.com/vi/FFm2kSrUJew/maxresdefault.jpg)](https://youtu.be/FFm2kSrUJew)
 
-The [video](https://youtu.be/FFm2kSrUJew) shows the hotbar and inventory, how to add your own item and how to build your own interface with it.
+The [video](https://youtu.be/FFm2kSrUJew) goes through the hotbar and inventory, adds a new item, and builds a color picker with the UI module.
 
 > Unofficial community project, not affiliated with or endorsed by Vortex.
 
 ## Why
 
 * Vortex doesn't have ScreenGui yet, so the interface is drawn with Parts in front of the camera.
-* Studio 0.7.0 added mouse input, and that's what makes hovering, clicking and drag and drop possible.
+* Studio 0.7.0 added mouse input, which is what makes hovering, clicking and dragging possible.
 * It's made to be taken apart: a UI module, an inventory built on top of it, a list of items and a short example script.
 
 ## Try it
@@ -22,12 +22,12 @@ The [video](https://youtu.be/FFm2kSrUJew) shows the hotbar and inventory, how to
 | Do this | and this happens |
 | --- | --- |
 | click the button next to slot 9, or press `0` | the inventory opens or closes |
-| drag an item | it moves to the slot or cell you drop it on. A full cell swaps with it |
-| click a slot, or press `1` to `9` | the slot is selected and its item goes to your right hand. Do it again to put it back |
+| drag an item | it goes to the slot or cell you drop it on. If something is already there, the two swap |
+| click a slot, or press `1` to `9` | the slot is selected and its item goes into your right hand. Do it again to put it away |
 
 ## Add your own item
 
-1. Build your model, group it and put the group inside the `Items` group in Workspace. It lies there as a prop until somebody equips it.
+1. Build your model, group it and put the group inside the `Items` group in Workspace. Keep every part directly in that group: parts inside a group within it won't show up in the slot or in the hand. The model lies there as a prop until somebody equips it.
 2. Add a part named `Handle` to it, where the hand should hold it. The front of the Handle is where the item points and its top is the item's top, the same as with Roblox tools.
 3. Give it an id in the `Items` module:
 
@@ -52,7 +52,13 @@ That's all. The picture in the slot is a small copy of the model itself, painted
 
 ## The inventory in your own script
 
+Both modules run on the client, so use them from a LocalScript in StarterPlayerScripts.
+
 ```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InteractiveUI = require(ReplicatedStorage:WaitForChild("InteractiveUI"))
+local Inventory = require(ReplicatedStorage:WaitForChild("Inventory"))
+
 local ui = InteractiveUI.new()
 local inventory = Inventory.new(ui)
 
@@ -64,21 +70,28 @@ inventory.onEquip = function(item)
 end
 ```
 
-| | |
+| Name | Description |
 | --- | --- |
-| `inventory:add(item)` | puts the item in the first free cell. Returns `false` when the inventory is full |
-| `inventory:select(index)` | selects a hotbar slot, or deselects it if it was selected |
+| `inventory:add(item)` | puts the item in the first free cell of the window. `item.model` is the model itself, not its name. Returns `false` when the window is full |
+| `inventory:select(index)` | selects a hotbar slot, or deselects it if it was already selected |
 | `inventory:setOpen(open)` | opens or closes the window |
+| `inventory.selected` | the number of the selected slot, or `nil` |
 | `inventory.equipped` | the item in the selected slot, or `nil` |
-| `inventory.onEquip` | called with the item whenever that changes |
+| `inventory.isOpen` | whether the window is open |
+| `inventory.onEquip` | called with the equipped item whenever it changes, with `nil` when nothing is equipped |
+
+The inventory only tells you what is equipped. Putting the model in the hand is done in `Example.client.luau`.
 
 Sizes, colors, the number of slots and the look of the item pictures are at the top of `Inventory.luau`.
 
 ## The UI module on its own
 
-Positions and sizes are in screen units. The screen is always 100 units tall, `(0, 0)` is its middle, `x` grows to the right and `y` grows upward.
+Positions and sizes are in screen units. The screen is always 100 units tall, `(0, 0)` is its middle, `x` grows to the right and `y` grows upward. How wide it is depends on the window: about 178 units on a 16:9 screen.
 
 ```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InteractiveUI = require(ReplicatedStorage:WaitForChild("InteractiveUI"))
+
 local ui = InteractiveUI.new()
 
 local panel = ui:panel({ x = 0, y = -30 })
@@ -89,28 +102,35 @@ button.onClick = function()
 end
 ```
 
-A panel is a group of rects that is built once and then moves, hides and shows as one. Add its rects right after creating it; after that they can change color, but they can't move and no more can be added. Anything that moves on its own, like a dragged item, gets a panel of its own.
+A panel is a group of rects that is built once and then moves, hides and shows as one. Add its rects right after creating it, before the next frame. After that they can change color, but they can't move and no more can be added. Anything that moves on its own, like a dragged item, gets a panel of its own.
 
-| | |
+| Name | Description |
 | --- | --- |
-| `ui:panel({ x, y, layer, visible })` | a new panel. Higher layers are drawn on top |
-| `ui:model(model, { x, y, layer, size, rotation, color, material })` | a panel showing a small copy of a model, seen from its right side. `color` and `material` paint every part of the copy alike |
-| `panel:rect({ x, y, width, height, color, transparency, layer, rotation })` | a rect, measured from the middle of the panel |
-| `panel:moveTo(x, y)`, `panel:setLayer(layer)`, `panel:setVisible(visible)` | |
-| `rect:setColor(color)` | |
-| `ui:onKey(keyCode, callback)` | runs when the key is pressed, unless the player is typing in chat |
-| `ui:onUpdate(callback)` | runs every frame |
+| `InteractiveUI.new({ distance })` | starts the UI. `distance` is how many studs in front of the camera it is drawn, 2 if you leave it out |
+| `ui:panel({ x, y, layer, visible, name })` | a new panel. Higher layers are drawn in front. `name` is the name of its Part in Workspace |
+| `ui:model(model, { x, y, layer, visible, size, rotation, color, material, name })` | a panel showing a small copy of a model, seen from its right side. `size` is its longest side in screen units (5 by default) and `rotation` tilts it, in degrees. `color` and `material` paint every part of the copy alike. Only parts directly inside the model are copied |
+| `panel:rect({ x, y, width, height, color, transparency, layer, rotation, name })` | a rect, measured from the middle of the panel. `rotation` is in degrees and only changes how it looks: the mouse still sees an unturned rect |
+| `panel:moveTo(x, y)` | moves the panel |
+| `panel:setLayer(layer)` | puts the panel on another layer |
+| `panel:setVisible(visible)` | hides or shows the panel |
+| `rect:setColor(color)` | changes the rect's color |
+| `ui:onKey(keyCode, callback)` | runs `callback` when the key is pressed, unless the player is typing in chat |
+| `ui:onUpdate(callback)` | runs `callback` every frame |
+| `ui:rectAt(x, y)` | the rect at that point that reacts to the mouse, or `nil` |
 | `ui.pointer.x`, `ui.pointer.y` | where the mouse is, in screen units |
-| `ui.hovered` | the rect under the mouse |
+| `ui.pointer.down` | `true` while the left button is held |
+| `ui.hovered` | the rect under the mouse that reacts to it, or `nil` |
 
 Give a rect any of these functions and it starts reacting to the mouse:
 
 | Function | Called when |
 | --- | --- |
-| `onClick(rect)` | the left button was pressed and released on the rect |
+| `onClick(rect)` | the left button went down and came back up on this rect |
 | `onPress(rect)` | the left button went down on it |
-| `onRelease(rect, over)` | the button came back up. `over` is the rect under the mouse at that moment, or `nil` |
+| `onRelease(rect, over)` | the button came back up after going down on this rect, wherever the mouse is now. `over` is the rect under the mouse at that moment, or `nil`. Drag and drop is built on this |
 | `onEnter(rect)`, `onLeave(rect)` | the mouse moved onto or off the rect |
+
+Rects without any of these are ignored by the mouse, so a plain rect drawn over a button doesn't block it. Where two that react overlap, the one on the higher layer gets the mouse.
 
 ## How it works
 
@@ -124,7 +144,7 @@ Vortex nudges child Parts a tiny bit whenever their parent moves, and the interf
 
 ## Good to know
 
-* Needs Vortex Studio 0.7.0 or newer. Tested on 0.7.2.
+* Made and tested on Vortex Studio 0.7.2. The mouse input it needs came in 0.7.0.
 * The interface is drawn 2 studs in front of the camera. Anything closer than that, like a wall the camera is pushed against, covers it. `InteractiveUI.new({ distance = 1 })` moves it closer.
 * Rects are ordinary Parts, so the lighting of your game changes how bright they look.
 * There is no text.
